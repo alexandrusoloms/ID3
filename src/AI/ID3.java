@@ -1,14 +1,6 @@
 package AI;
 
-import org.w3c.dom.Node;
-
-import java.io.File;
-import java.io.FileReader;
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.Scanner;
 import java.util.ArrayList;
 
 public class ID3 {
@@ -129,21 +121,6 @@ public class ID3 {
     public void train(String[][] trainingData) {
         indexStrings(trainingData);
 
-
-//        NodeTree[] subsets = new NodeTree[stringCount[0]];
-//        for (int i = 0; i < subsets.length; i++) {
-//            //split data for each string of an attribute
-//            //method creates a shallow copy of the array, to cause data disintegrity
-//            //pass new ignored columns and rows to the method
-//            if (subsets[i] == null) {
-//                subsets[i] = new NodeTree(null, i);
-//            }
-//            //decisionTree = ID3(trainingData);
-//            //printTree();
-//            // PUT  YOUR CODE HERE FOR TRAINING
-//        } // train()
-//        NodeTree test = new NodeTree(subsets, 0);
-//        System.out.println(test);
         decisionTree = ID3(trainingData, new ArrayList<Integer>());
         System.out.println(decisionTree);
     }
@@ -240,24 +217,157 @@ public class ID3 {
         return out;
     }
 
-    public int findBestQuestion(String[][] data){
+    /**
+     * Mimmicking Python's Counter dictionary.
+     * @param dataArray string[]
+     * @return {"string": frequency (int)}
+     */
+    HashMap<String, Integer> Counter(ArrayList<String> dataArray){
+        HashMap<String, Integer> hashMap = new HashMap<>();
 
-        //printCCount(cCount);
-        double bestGain = -1;
-        int bestAttr = -1;
-        //
-
-
-        for (int i = 0; i < data[0].length; i++){
-            for (int j = 1; j < data.length; j++){
-                System.out.println(data[j][i]);
+        for (String s: dataArray){
+            if (!hashMap.containsKey(s)){
+                hashMap.put(s, 1);
+            } else {
+                int currentValue = hashMap.get(s);
+                hashMap.put(s, currentValue + 1);
             }
-            System.out.println("\n\n");
         }
 
+        return hashMap;
+    }
+
+    double getEntropy(double probability){
+        return - xlogx(probability);
+    }
 
 
-        return 0;
+    double calculateEntropy(String[][] data){
+        int lastIndex = data[0].length - 1;
+        ArrayList<String> classLabels = new ArrayList<>();
+        double entropy = 0.0;
+
+        int index = 0;
+        for (String[] s: data){
+            classLabels.add(index, s[lastIndex]);
+            index++;
+        }
+
+        HashMap<String, Integer> labelCount = Counter(classLabels);
+        int labelTotal = labelCount.size();
+
+        for (String key: labelCount.keySet()){
+            double value = labelCount.get(key);
+            double prob = (value / labelTotal);
+            // slightly redundant function... but it's staying.
+            entropy += getEntropy(prob);
+        }
+        return entropy;
+    }
+
+    ArrayList<Integer> identifyQuestion(String question){
+        ArrayList<Integer> questionPos = new ArrayList<>();
+
+        int i =0;
+        int j = 0;
+
+        for (String[] st: strings){
+            for (String s: st){
+                if (s.equals(question)){
+                    questionPos.add(0, i);
+                    questionPos.add(1, j);
+                    return questionPos;
+                }
+                j++;
+            }
+            i++;
+            j=0;
+        }
+
+        return questionPos;
+    }
+
+
+    // TODO: finish this
+    String[][] makeSubSet(String[][] data, String question){
+
+        String[][] newSet = new String[data[0].length][data.length];
+
+        int index = 0;
+        for (int i = 0; i < data[0].length; i++){
+            for (String[] datum : data) {
+                if (i == identifyQuestion(question).get(0)) {
+                    if (datum[i].equals(question)) {
+                        newSet[index] = datum;
+                        index++;
+                    }
+                }
+            }
+        }
+
+        return newSet;
+    }
+
+
+    int countQuestion(String[][] data, String question){
+        int counter = 0;
+        for (String[] S: data){
+            for (String s: S){
+                if (s.equals(question)){
+                    counter += 1;
+                }
+            }
+        }
+
+        return counter;
+    }
+
+    int indexOfLowestPositiveValue(ArrayList<Double> a){
+        int index = 0;
+        double minValue = 9999999.0;
+
+        for (Double i: a){
+            if (i > 0){
+                if (i < minValue){
+                    minValue = i;
+                }
+            }
+        }
+
+        for (Double i: a){
+            if (i == minValue){
+                return index;
+            }
+            index++;
+        }
+        // hopefully never reached
+        System.out.println("WARNING LOWEST POSITIVE INT DID NOT TRIGGER IF");
+        return index;
+    }
+
+    /**
+     *
+     * @param data
+     * @return
+     */
+    public int findBestQuestion(String[][] data){
+
+        int lenSet = data.length;
+        double originalEntropy = calculateEntropy(data);
+        ArrayList<Double> entropies = new ArrayList<Double>();
+        int index = 0;
+        for (String[] string: strings){
+            double sum_ = 0;
+            for (String s: string){
+                String[][] subSet = makeSubSet(data, s);
+                int subSetFreq = countQuestion(subSet, s);
+                double ent = calculateEntropy(subSet);
+                sum_ += (subSetFreq / lenSet) * ent;
+            }
+            entropies.add(index, originalEntropy - sum_);
+            index++;
+        }
+        return indexOfLowestPositiveValue(entropies);
     }
 
     /**
